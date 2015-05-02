@@ -1,0 +1,13 @@
+diff --git a/init/util.c b/init/util.c
+index 8dd56a1..80a9854 100644
+--- a/init/util.c
++++ b/init/util.c
+@@ -438,7 +438,7 @@ void get_hardware_name(char *hardware, unsigned int *revision)
+         if (x) {
+             x += 2;
+             n = 0;
+-            while (*x && *x != '\n') {
++            while (*x && *x != '\n' && *x != '(') {
+                 if (!isspace(*x))
+                     hardware[n++] = tolower(*x);
+                 x++;

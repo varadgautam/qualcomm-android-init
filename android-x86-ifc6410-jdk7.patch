@@ -1,0 +1,107 @@
+
+project frameworks/base/
+diff --git a/api/current.txt b/api/current.txt
+index 8e69592..bd21366 100644
+--- a/api/current.txt
++++ b/api/current.txt
+@@ -133,6 +133,7 @@ package android {
+     field public static final java.lang.String TRANSMIT_IR = "android.permission.TRANSMIT_IR";
+     field public static final java.lang.String UNINSTALL_SHORTCUT = "com.android.launcher.permission.UNINSTALL_SHORTCUT";
+     field public static final java.lang.String UPDATE_DEVICE_STATS = "android.permission.UPDATE_DEVICE_STATS";
++    field public static final java.lang.String USB_ACCESS = "android.permission.USB_ACCESS";
+     field public static final java.lang.String USE_CREDENTIALS = "android.permission.USE_CREDENTIALS";
+     field public static final java.lang.String USE_SIP = "android.permission.USE_SIP";
+     field public static final java.lang.String VIBRATE = "android.permission.VIBRATE";
+@@ -21790,7 +21791,7 @@ package android.renderscript {
+   }
+ 
+   public class BaseObj {
+-    method public synchronized void destroy();
++    method public void destroy();
+     method public java.lang.String getName();
+     method public void setName(java.lang.String);
+   }
+
+project frameworks/opt/telephony/
+diff --git a/src/java/com/android/internal/telephony/gsm/GSMPhone.java b/src/java/com/android/internal/telephony/gsm/GSMPhone.java
+index 0e2a73e..a71163d 100644
+--- a/src/java/com/android/internal/telephony/gsm/GSMPhone.java
++++ b/src/java/com/android/internal/telephony/gsm/GSMPhone.java
+@@ -166,7 +166,7 @@ public class GSMPhone extends PhoneBase {
+         mCi.setOnUSSD(this, EVENT_USSD, null);
+         mCi.setOnSuppServiceNotification(this, EVENT_SSN, null);
+         mSST.registerForNetworkAttached(this, EVENT_REGISTERED_TO_NETWORK, null);
+-
++/*	allow build with JDK 1.7
+         if (DBG_PORT) {
+             try {
+                 //debugSocket = new LocalServerSocket("com.android.internal.telephony.debug");
+@@ -201,7 +201,7 @@ public class GSMPhone extends PhoneBase {
+                 Rlog.w(LOG_TAG, "Failure to open com.android.internal.telephony.debug socket", ex);
+             }
+         }
+-
++*/
+         //Change the system property
+         SystemProperties.set(TelephonyProperties.CURRENT_ACTIVE_PHONE,
+                 new Integer(PhoneConstants.PHONE_TYPE_GSM).toString());
+
+project libcore/
+diff --git a/libart/src/main/java/java/lang/Enum.java b/libart/src/main/java/java/lang/Enum.java
+index f98554a..43ac113 100644
+--- a/libart/src/main/java/java/lang/Enum.java
++++ b/libart/src/main/java/java/lang/Enum.java
+@@ -148,7 +148,7 @@ public abstract class Enum<E extends Enum<E>> implements Serializable, Comparabl
+      * @see java.lang.Comparable
+      */
+     public final int compareTo(E o) {
+-        return ordinal - o.ordinal;
++        return ordinal - o.ordinal();
+     }
+ 
+     /**
+diff --git a/libdvm/src/main/java/java/lang/Enum.java b/libdvm/src/main/java/java/lang/Enum.java
+index 7a0f514..4b897aa 100644
+--- a/libdvm/src/main/java/java/lang/Enum.java
++++ b/libdvm/src/main/java/java/lang/Enum.java
+@@ -147,7 +147,7 @@ public abstract class Enum<E extends Enum<E>> implements Serializable, Comparabl
+      * @see java.lang.Comparable
+      */
+     public final int compareTo(E o) {
+-        return ordinal - o.ordinal;
++        return ordinal - o.ordinal();
+     }
+ 
+     /**
+
+project packages/apps/Gallery2/
+diff --git a/src/com/android/gallery3d/util/LinkedNode.java b/src/com/android/gallery3d/util/LinkedNode.java
+index 4cfc3cd..9018ba9 100644
+--- a/src/com/android/gallery3d/util/LinkedNode.java
++++ b/src/com/android/gallery3d/util/LinkedNode.java
+@@ -18,8 +18,8 @@ package com.android.gallery3d.util;
+ 
+ 
+ public class LinkedNode {
+-    private LinkedNode mPrev;
+-    private LinkedNode mNext;
++    protected LinkedNode mPrev;
++    protected LinkedNode mNext;
+ 
+     public LinkedNode() {
+         mPrev = mNext = this;
+
+project system/core/
+diff --git a/init/util.c b/init/util.c
+index 8dd56a1..80a9854 100644
+--- a/init/util.c
++++ b/init/util.c
+@@ -438,7 +438,7 @@ void get_hardware_name(char *hardware, unsigned int *revision)
+         if (x) {
+             x += 2;
+             n = 0;
+-            while (*x && *x != '\n') {
++            while (*x && *x != '\n' && *x != '(') {
+                 if (!isspace(*x))
+                     hardware[n++] = tolower(*x);
+                 x++;
