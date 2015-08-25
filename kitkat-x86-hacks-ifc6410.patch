@@ -1,0 +1,558 @@
+
+project device/generic/armv7-a-neon/
+diff --git a/BoardConfig.mk b/BoardConfig.mk
+index 80a34cc..a064850 100644
+--- a/BoardConfig.mk
++++ b/BoardConfig.mk
+@@ -25,3 +25,5 @@ WPA_SUPPLICANT_VERSION := VER_0_8_X
+ USE_OPENGL_RENDERER := true
+ 
+ BOARD_USE_LEGACY_UI := true
++
++WITH_DEXPREOPT := true
+
+project frameworks/base/
+diff --git a/api/current.txt b/api/current.txt
+index 8e69592..bd21366 100644
+--- a/api/current.txt
++++ b/api/current.txt
+@@ -133,6 +133,7 @@ package android {
+     field public static final java.lang.String TRANSMIT_IR = "android.permission.TRANSMIT_IR";
+     field public static final java.lang.String UNINSTALL_SHORTCUT = "com.android.launcher.permission.UNINSTALL_SHORTCUT";
+     field public static final java.lang.String UPDATE_DEVICE_STATS = "android.permission.UPDATE_DEVICE_STATS";
++    field public static final java.lang.String USB_ACCESS = "android.permission.USB_ACCESS";
+     field public static final java.lang.String USE_CREDENTIALS = "android.permission.USE_CREDENTIALS";
+     field public static final java.lang.String USE_SIP = "android.permission.USE_SIP";
+     field public static final java.lang.String VIBRATE = "android.permission.VIBRATE";
+@@ -21790,7 +21791,7 @@ package android.renderscript {
+   }
+ 
+   public class BaseObj {
+-    method public synchronized void destroy();
++    method public void destroy();
+     method public java.lang.String getName();
+     method public void setName(java.lang.String);
+   }
+
+project frameworks/native/
+diff --git a/services/surfaceflinger/DisplayHardware/HWComposer.cpp b/services/surfaceflinger/DisplayHardware/HWComposer.cpp
+index abadf5e..5d1a91a 100644
+--- a/services/surfaceflinger/DisplayHardware/HWComposer.cpp
++++ b/services/surfaceflinger/DisplayHardware/HWComposer.cpp
+@@ -493,7 +493,7 @@ void HWComposer::eventControl(int disp, int event, int enabled) {
+         const int32_t oldValue = mDisplayData[disp].events & eventBit;
+         if (newValue != oldValue) {
+             ATRACE_CALL();
+-            err = mHwc->eventControl(mHwc, disp, event, enabled);
++            err = mHwc->eventControl ? mHwc->eventControl(mHwc, disp, event, enabled) : NO_ERROR;
+             if (!err) {
+                 int32_t& events(mDisplayData[disp].events);
+                 events = (events & ~eventBit) | newValue;
+@@ -731,14 +731,15 @@ status_t HWComposer::release(int disp) {
+     LOG_FATAL_IF(disp >= VIRTUAL_DISPLAY_ID_BASE);
+     if (mHwc) {
+         eventControl(disp, HWC_EVENT_VSYNC, 0);
+-        return (status_t)mHwc->blank(mHwc, disp, 1);
++        if(mHwc->blank)
++            return (status_t)mHwc->blank(mHwc, disp, 1);
+     }
+     return NO_ERROR;
+ }
+ 
+ status_t HWComposer::acquire(int disp) {
+     LOG_FATAL_IF(disp >= VIRTUAL_DISPLAY_ID_BASE);
+-    if (mHwc) {
++    if (mHwc && mHwc->blank) {
+         return (status_t)mHwc->blank(mHwc, disp, 0);
+     }
+     return NO_ERROR;
+
+project frameworks/opt/telephony/
+diff --git a/src/java/com/android/internal/telephony/gsm/GSMPhone.java b/src/java/com/android/internal/telephony/gsm/GSMPhone.java
+index 0e2a73e..a71163d 100644
+--- a/src/java/com/android/internal/telephony/gsm/GSMPhone.java
++++ b/src/java/com/android/internal/telephony/gsm/GSMPhone.java
+@@ -166,7 +166,7 @@ public class GSMPhone extends PhoneBase {
+         mCi.setOnUSSD(this, EVENT_USSD, null);
+         mCi.setOnSuppServiceNotification(this, EVENT_SSN, null);
+         mSST.registerForNetworkAttached(this, EVENT_REGISTERED_TO_NETWORK, null);
+-
++/*	allow build with JDK 1.7
+         if (DBG_PORT) {
+             try {
+                 //debugSocket = new LocalServerSocket("com.android.internal.telephony.debug");
+@@ -201,7 +201,7 @@ public class GSMPhone extends PhoneBase {
+                 Rlog.w(LOG_TAG, "Failure to open com.android.internal.telephony.debug socket", ex);
+             }
+         }
+-
++*/
+         //Change the system property
+         SystemProperties.set(TelephonyProperties.CURRENT_ACTIVE_PHONE,
+                 new Integer(PhoneConstants.PHONE_TYPE_GSM).toString());
+
+project libcore/
+diff --git a/libart/src/main/java/java/lang/Enum.java b/libart/src/main/java/java/lang/Enum.java
+index f98554a..43ac113 100644
+--- a/libart/src/main/java/java/lang/Enum.java
++++ b/libart/src/main/java/java/lang/Enum.java
+@@ -148,7 +148,7 @@ public abstract class Enum<E extends Enum<E>> implements Serializable, Comparabl
+      * @see java.lang.Comparable
+      */
+     public final int compareTo(E o) {
+-        return ordinal - o.ordinal;
++        return ordinal - o.ordinal();
+     }
+ 
+     /**
+diff --git a/libdvm/src/main/java/java/lang/Enum.java b/libdvm/src/main/java/java/lang/Enum.java
+index 7a0f514..4b897aa 100644
+--- a/libdvm/src/main/java/java/lang/Enum.java
++++ b/libdvm/src/main/java/java/lang/Enum.java
+@@ -147,7 +147,7 @@ public abstract class Enum<E extends Enum<E>> implements Serializable, Comparabl
+      * @see java.lang.Comparable
+      */
+     public final int compareTo(E o) {
+-        return ordinal - o.ordinal;
++        return ordinal - o.ordinal();
+     }
+ 
+     /**
+diff --git a/luni/src/main/java/java/security/Security.java b/luni/src/main/java/java/security/Security.java
+index 0b6961b..2a0fbbd 100644
+--- a/luni/src/main/java/java/security/Security.java
++++ b/luni/src/main/java/java/security/Security.java
+@@ -19,6 +19,9 @@ package java.security;
+ 
+ import java.io.BufferedInputStream;
+ import java.io.InputStream;
++import java.io.InputStreamReader;
++import java.io.Reader;
++import java.util.ArrayList;
+ import java.util.Enumeration;
+ import java.util.HashMap;
+ import java.util.HashSet;
+@@ -46,16 +49,25 @@ public final class Security {
+     // - load security properties files
+     // - load statically registered providers
+     // - if no provider description file found then load default providers
++    // Note: Getting the input stream for the security.properties file is factored into its own
++    //       function, which will be intercepted during boot image creation.
+     static {
+         boolean loaded = false;
++        Reader input = null;
+         try {
+-            InputStream configStream = Security.class.getResourceAsStream("security.properties");
+-            InputStream input = new BufferedInputStream(configStream);
++            input = getSecurityPropertiesReader();
+             secprops.load(input);
+             loaded = true;
+-            configStream.close();
+         } catch (Exception ex) {
+             System.logE("Could not load 'security.properties'", ex);
++        } finally {
++            if (input != null) {
++                try {
++                    input.close();
++                } catch (Exception ex) {
++                    System.logW("Could not close 'security.properties'", ex);
++                }
++            }
+         }
+         if (!loaded) {
+             registerDefaultProviders();
+@@ -63,6 +75,11 @@ public final class Security {
+         Engine.door = new SecurityDoor();
+     }
+ 
++    private static Reader getSecurityPropertiesReader() throws Exception {
++        InputStream configStream = Security.class.getResourceAsStream("security.properties");
++        return new InputStreamReader(new BufferedInputStream(configStream), "ISO-8859-1");
++    }
++
+     /**
+      * This class can't be instantiated.
+      */
+@@ -72,10 +89,9 @@ public final class Security {
+     // Register default providers
+     private static void registerDefaultProviders() {
+         secprops.put("security.provider.1", "com.android.org.conscrypt.OpenSSLProvider");
+-        secprops.put("security.provider.2", "org.apache.harmony.security.provider.cert.DRLCertFactory");
+-        secprops.put("security.provider.3", "com.android.org.bouncycastle.jce.provider.BouncyCastleProvider");
+-        secprops.put("security.provider.4", "org.apache.harmony.security.provider.crypto.CryptoProvider");
+-        secprops.put("security.provider.5", "com.android.org.conscrypt.JSSEProvider");
++        secprops.put("security.provider.2", "com.android.org.bouncycastle.jce.provider.BouncyCastleProvider");
++        secprops.put("security.provider.3", "org.apache.harmony.security.provider.crypto.CryptoProvider");
++        secprops.put("security.provider.4", "com.android.org.conscrypt.JSSEProvider");
+     }
+ 
+     /**
+@@ -96,7 +112,7 @@ public final class Security {
+         String prop = "Alg." + propName + "." + algName;
+         Provider[] providers = getProviders();
+         for (Provider provider : providers) {
+-            for (Enumeration e = provider.propertyNames(); e.hasMoreElements(); ) {
++            for (Enumeration<?> e = provider.propertyNames(); e.hasMoreElements();) {
+                 String propertyName = (String) e.nextElement();
+                 if (propertyName.equalsIgnoreCase(prop)) {
+                     return provider.getProperty(propertyName);
+@@ -184,7 +200,8 @@ public final class Security {
+      * @return an array containing all installed providers.
+      */
+     public static synchronized Provider[] getProviders() {
+-        return Services.getProviders();
++        ArrayList<Provider> providers = Services.getProviders();
++        return providers.toArray(new Provider[providers.size()]);
+     }
+ 
+     /**
+@@ -274,7 +291,7 @@ public final class Security {
+         if (filter.isEmpty()) {
+             return null;
+         }
+-        java.util.List<Provider> result = Services.getProvidersList();
++        ArrayList<Provider> result = new ArrayList<Provider>(Services.getProviders());
+         Set<Entry<String, String>> keys = filter.entrySet();
+         Map.Entry<String, String> entry;
+         for (Iterator<Entry<String, String>> it = keys.iterator(); it.hasNext();) {
+@@ -306,25 +323,23 @@ public final class Security {
+             if (serv.length() == 0 || alg.length() == 0) {
+                 throw new InvalidParameterException();
+             }
+-            Provider p;
+-            for (int k = 0; k < result.size(); k++) {
+-                try {
+-                    p = result.get(k);
+-                } catch (IndexOutOfBoundsException e) {
+-                    break;
+-                }
+-                if (!p.implementsAlg(serv, alg, attribute, val)) {
+-                    result.remove(p);
+-                    k--;
+-                }
+-            }
++            filterProviders(result, serv, alg, attribute, val);
+         }
+         if (result.size() > 0) {
+             return result.toArray(new Provider[result.size()]);
+         }
+         return null;
+     }
+-
++    private static void filterProviders(ArrayList<Provider> providers, String service,
++            String algorithm, String attribute, String attrValue) {
++        Iterator<Provider> it = providers.iterator();
++        while (it.hasNext()) {
++            Provider p = it.next();
++            if (!p.implementsAlg(service, algorithm, attribute, attrValue)) {
++                it.remove();
++            }
++        }
++    }
+     /**
+      * Returns the value of the security property named by the argument.
+      *
+@@ -384,9 +399,9 @@ public final class Security {
+      *
+      */
+     private static void renumProviders() {
+-        Provider[] p = Services.getProviders();
+-        for (int i = 0; i < p.length; i++) {
+-            p[i].setProviderNumber(i + 1);
++        ArrayList<Provider> providers = Services.getProviders();
++        for (int i = 0; i < providers.size(); i++) {
++            providers.get(i).setProviderNumber(i + 1);
+         }
+     }
+ 
+diff --git a/luni/src/main/java/org/apache/harmony/security/fortress/Engine.java b/luni/src/main/java/org/apache/harmony/security/fortress/Engine.java
+index f1dd43c..8a39f68 100644
+--- a/luni/src/main/java/org/apache/harmony/security/fortress/Engine.java
++++ b/luni/src/main/java/org/apache/harmony/security/fortress/Engine.java
+@@ -24,6 +24,7 @@ package org.apache.harmony.security.fortress;
+ 
+ import java.security.NoSuchAlgorithmException;
+ import java.security.Provider;
++import java.util.ArrayList;
+ import java.util.Locale;
+ 
+ 
+@@ -31,8 +32,8 @@ import java.util.Locale;
+  * This class implements common functionality for Provider supplied
+  * classes. The usage pattern is to allocate static Engine instance
+  * per service type and synchronize on that instance during calls to
+- * {@code getInstance} and retreival of the selected {@code Provider}
+- * and Service Provider Interface (SPI) results. Retreiving the
++ * {@code getInstance} and retrieval of the selected {@code Provider}
++ * and Service Provider Interface (SPI) results. Retrieving the
+  * results with {@code getProvider} and {@code getSpi} sets the
+  * internal {@code Engine} values to null to prevent memory leaks.
+  *
+@@ -69,8 +70,7 @@ import java.util.Locale;
+  *
+  * }</pre>
+  */
+-public class Engine {
+-
++public final class Engine {
+     /**
+      * Access to package visible api in java.security
+      */
+@@ -95,14 +95,13 @@ public class Engine {
+         /** used to test for cache validity */
+         private final int cacheVersion;
+         /** cached result */
+-        private final Provider.Service service;
+-
++        private final ArrayList<Provider.Service> services;
+         private ServiceCacheEntry(String algorithm,
+                                   int cacheVersion,
+-                                  Provider.Service service) {
++                                  ArrayList<Provider.Service> services) {
+             this.algorithm = algorithm;
+             this.cacheVersion = cacheVersion;
+-            this.service = service;
++            this.services = services;
+         }
+     }
+ 
+@@ -118,47 +117,59 @@ public class Engine {
+     /**
+      * Creates a Engine object
+      *
+-     * @param service
++     * @param serviceName
+      */
+-    public Engine(String service) {
+-        this.serviceName = service;
++    public Engine(String serviceName) {
++        this.serviceName = serviceName;
+     }
+ 
+     /**
+      * Finds the appropriate service implementation and returns an
+-     * {@code SpiAndProvider} instance containing a reference to SPI
+-     * and its {@code Provider}
++     * {@code SpiAndProvider} instance containing a reference to the first
++     * matching SPI and its {@code Provider}
+      */
+     public SpiAndProvider getInstance(String algorithm, Object param)
+             throws NoSuchAlgorithmException {
+         if (algorithm == null) {
+             throw new NoSuchAlgorithmException("Null algorithm name");
+         }
++        ArrayList<Provider.Service> services = getServices(algorithm);
++        if (services == null) {
++            throw notFound(this.serviceName, algorithm);
++        }
++        return new SpiAndProvider(services.get(0).newInstance(param), services.get(0).getProvider());
++    }
++    /**
++     * Finds the appropriate service implementation and returns an
++     * {@code SpiAndProvider} instance containing a reference to SPI
++     * and its {@code Provider}
++     */
++    public SpiAndProvider getInstance(Provider.Service service, String param)
++            throws NoSuchAlgorithmException {
++        return new SpiAndProvider(service.newInstance(param), service.getProvider());
++    }
++    /**
++     * Returns a list of all possible matches for a given algorithm.
++     */
++    public ArrayList<Provider.Service> getServices(String algorithm) {
+         int newCacheVersion = Services.getCacheVersion();
+         Provider.Service service;
+         ServiceCacheEntry cacheEntry = this.serviceCache;
++        final String algoUC = algorithm.toUpperCase(Locale.US);
+         if (cacheEntry != null
+-                && cacheEntry.algorithm.equalsIgnoreCase(algorithm)
++                && cacheEntry.algorithm.equalsIgnoreCase(algoUC)
+                 && newCacheVersion == cacheEntry.cacheVersion) {
+-            service = cacheEntry.service;
+-        } else {
+-            if (Services.isEmpty()) {
+-                throw notFound(serviceName, algorithm);
+-            }
+-            String name = this.serviceName + "." + algorithm.toUpperCase(Locale.US);
+-            service = Services.getService(name);
+-            if (service == null) {
+-                throw notFound(serviceName, algorithm);
+-            }
+-            this.serviceCache = new ServiceCacheEntry(algorithm, newCacheVersion, service);
++            return cacheEntry.services;
+         }
+-        return new SpiAndProvider(service.newInstance(param), service.getProvider());
++        String name = this.serviceName + "." + algoUC;
++        ArrayList<Provider.Service> services = Services.getServices(name);
++        this.serviceCache = new ServiceCacheEntry(algoUC, newCacheVersion, services);
++        return services;
+     }
+ 
+     /**
+-     * Finds the appropriate service implementation and returns and
+-     * instance of the class that implements corresponding Service
+-     * Provider Interface.
++     * Finds the appropriate service implementation and returns and instance of
++     * the class that implements corresponding Service Provider Interface.
+      */
+     public Object getInstance(String algorithm, Provider provider, Object param)
+             throws NoSuchAlgorithmException {
+diff --git a/luni/src/main/java/org/apache/harmony/security/fortress/Services.java b/luni/src/main/java/org/apache/harmony/security/fortress/Services.java
+index 4fe0d44..a6fb76b 100644
+--- a/luni/src/main/java/org/apache/harmony/security/fortress/Services.java
++++ b/luni/src/main/java/org/apache/harmony/security/fortress/Services.java
+@@ -38,9 +38,8 @@ public class Services {
+      * Set the initial size to 600 so we don't grow to 1024 by default because
+      * initialization adds a few entries more than the growth threshold.
+      */
+-    private static final Map<String, Provider.Service> services
+-            = new HashMap<String, Provider.Service>(600);
+-
++    private static final HashMap<String, ArrayList<Provider.Service>> services
++            = new HashMap<String, ArrayList<Provider.Service>>(600);
+     /**
+      * Save default SecureRandom service as well.
+      * Avoids similar provider/services iteration in SecureRandom constructor.
+@@ -62,27 +61,43 @@ public class Services {
+     /**
+      * Registered providers.
+      */
+-    private static final List<Provider> providers = new ArrayList<Provider>(20);
++    private static final ArrayList<Provider> providers = new ArrayList<Provider>(20);
++    /**
++     * Try to load and register a provider by name from the given class-loader.
++     */
++    private static boolean initProvider(String providerClassName, ClassLoader classLoader) {
++        try {
++            Class<?> providerClass = Class.forName(providerClassName.trim(), true, classLoader);
++            Provider p = (Provider) providerClass.newInstance();
++            providers.add(p);
++            providersNames.put(p.getName(), p);
++            initServiceInfo(p);
++            return true;
++        } catch (ClassNotFoundException ignored) {
++        } catch (IllegalAccessException ignored) {
++        } catch (InstantiationException ignored) {
++        }
++        return false;
++    }
+ 
+     /**
+      * Hash for quick provider access by name.
+      */
+-    private static final Map<String, Provider> providersNames = new HashMap<String, Provider>(20);
++    private static final HashMap<String, Provider> providersNames
++            = new HashMap<String, Provider>(20);
+     static {
+         String providerClassName = null;
+         int i = 1;
+-        ClassLoader cl = ClassLoader.getSystemClassLoader();
++        ClassLoader cl = Services.class.getClassLoader();
+ 
+         while ((providerClassName = Security.getProperty("security.provider." + i++)) != null) {
+-            try {
+-                Class providerClass = Class.forName(providerClassName.trim(), true, cl);
+-                Provider p = (Provider) providerClass.newInstance();
+-                providers.add(p);
+-                providersNames.put(p.getName(), p);
+-                initServiceInfo(p);
+-            } catch (ClassNotFoundException ignored) {
+-            } catch (IllegalAccessException ignored) {
+-            } catch (InstantiationException ignored) {
++            if (!initProvider(providerClassName, cl)) {
++                // Not on the boot classpath. Try the system class-loader.
++                // Note: DO NOT USE A LOCAL FOR GETSYSTEMCLASSLOADER! This will break compile-time
++                //       initialization.
++                if (!initProvider(providerClassName, ClassLoader.getSystemClassLoader())) {
++                    // TODO: Logging?
++                }
+             }
+         }
+         Engine.door.renumProviders();
+@@ -91,8 +106,8 @@ public class Services {
+     /**
+      * Returns a copy of the registered providers as an array.
+      */
+-    public static synchronized Provider[] getProviders() {
+-        return providers.toArray(new Provider[providers.size()]);
++    public static synchronized ArrayList<Provider> getProviders() {
++        return providers;
+     }
+ 
+     /**
+@@ -145,20 +160,27 @@ public class Services {
+                 cachedSecureRandomService = service;
+             }
+             String key = type + "." + service.getAlgorithm().toUpperCase(Locale.US);
+-            if (!services.containsKey(key)) {
+-                services.put(key, service);
+-            }
++            appendServiceLocked(key, service);
+             for (String alias : Engine.door.getAliases(service)) {
+                 key = type + "." + alias.toUpperCase(Locale.US);
+-                if (!services.containsKey(key)) {
+-                    services.put(key, service);
+-                }
++                appendServiceLocked(key, service);
+             }
+         }
+     }
+ 
+     /**
+-     * Returns true if services contain any provider information.
++     * Add or append the service to the key.
++     */
++    private static void appendServiceLocked(String key, Provider.Service service) {
++        ArrayList<Provider.Service> serviceList = services.get(key);
++        if (serviceList == null) {
++            serviceList = new ArrayList<Provider.Service>(1);
++            services.put(key, serviceList);
++        }
++        serviceList.add(service);
++    }
++    /**
++     * Returns true if services does not contain any provider information.
+      */
+     public static synchronized boolean isEmpty() {
+         return services.isEmpty();
+@@ -174,7 +196,7 @@ public class Services {
+      * caches should be validated against the result of
+      * Service.getCacheVersion() before use.
+      */
+-    public static synchronized Provider.Service getService(String key) {
++    public static synchronized ArrayList<Provider.Service> getServices(String key) {
+         return services.get(key);
+     }
+ 
+
+project packages/apps/Gallery2/
+diff --git a/src/com/android/gallery3d/util/LinkedNode.java b/src/com/android/gallery3d/util/LinkedNode.java
+index 4cfc3cd..9018ba9 100644
+--- a/src/com/android/gallery3d/util/LinkedNode.java
++++ b/src/com/android/gallery3d/util/LinkedNode.java
+@@ -18,8 +18,8 @@ package com.android.gallery3d.util;
+ 
+ 
+ public class LinkedNode {
+-    private LinkedNode mPrev;
+-    private LinkedNode mNext;
++    protected LinkedNode mPrev;
++    protected LinkedNode mNext;
+ 
+     public LinkedNode() {
+         mPrev = mNext = this;
+
+project system/core/
+diff --git a/init/util.c b/init/util.c
+index 8dd56a1..80a9854 100644
+--- a/init/util.c
++++ b/init/util.c
+@@ -438,7 +438,7 @@ void get_hardware_name(char *hardware, unsigned int *revision)
+         if (x) {
+             x += 2;
+             n = 0;
+-            while (*x && *x != '\n') {
++            while (*x && *x != '\n' && *x != '(') {
+                 if (!isspace(*x))
+                     hardware[n++] = tolower(*x);
+                 x++;
