@@ -1,0 +1,58 @@
+diff --git a/arch/arm/boot/dts/qcom-apq8064-ifc6410.dts b/arch/arm/boot/dts/qcom-apq8064-ifc6410.dts
+index 3bd66cc..b29886f 100644
+--- a/arch/arm/boot/dts/qcom-apq8064-ifc6410.dts
++++ b/arch/arm/boot/dts/qcom-apq8064-ifc6410.dts
+@@ -131,14 +131,6 @@
+ 			hdmi-mux-supply = <&ext_3p3v>;
+ 		};
+ 
+-		mdp: qcom,mdp@5100000 {
+-			status = "okay";
+-			qcom,lvds-panel = <&panel>;
+-			lvds-vccs-3p3v-supply = <&ext_3p3v>;
+-			lvds-pll-vdda-supply = <&pm8921_l2>;
+-			lvds-vdda-supply = <&pm8921_lvs7>;
+-		};
+-
+ 		bl_3p3v: bl_3p3v {
+ 			pinctrl-0 = <&pwm_bl_gpios>;
+ 			pinctrl-names = "default";
+diff --git a/drivers/gpu/drm/Kconfig b/drivers/gpu/drm/Kconfig
+index c46ca31..25cc408 100644
+--- a/drivers/gpu/drm/Kconfig
++++ b/drivers/gpu/drm/Kconfig
+@@ -25,6 +25,13 @@ config DRM_MIPI_DSI
+ 	bool
+ 	depends on DRM
+ 
++config NO_GPU_AUTHENTICATION
++       bool "Disable GPU authentication"
++       depends on DRM
++       default n
++       help
++         Choose this option if you want to disable GPU authentication.
++
+ config DRM_KMS_HELPER
+ 	tristate
+ 	depends on DRM
+diff --git a/drivers/gpu/drm/drm_ioctl.c b/drivers/gpu/drm/drm_ioctl.c
+index b1d303f..6007eae 100644
+--- a/drivers/gpu/drm/drm_ioctl.c
++++ b/drivers/gpu/drm/drm_ioctl.c
+@@ -482,6 +482,7 @@ static int drm_version(struct drm_device *dev, void *data,
+  */
+ static int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
+ {
++   #ifndef CONFIG_NO_GPU_AUTHENTICATION
+ 	/* ROOT_ONLY is only for CAP_SYS_ADMIN */
+ 	if (unlikely((flags & DRM_ROOT_ONLY) && !capable(CAP_SYS_ADMIN)))
+ 		return -EACCES;
+@@ -505,7 +506,7 @@ static int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
+ 	if (unlikely(!(flags & DRM_RENDER_ALLOW) &&
+ 		     drm_is_render_client(file_priv)))
+ 		return -EACCES;
+-
++   #endif
+ 	return 0;
+ }
+ 
