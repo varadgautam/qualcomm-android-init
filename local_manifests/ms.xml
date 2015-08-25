@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <!-- Repositories -->
+  
+  <!-- DRM hwcomposer -->
+  <!--remote fetch="git://git.linaro.org/people/benjamin.gaignard" name="bga"/>
+  <project groups="non-default,drmhwc" name="libdrm" path="external/drm" remote="bga" revision="android-4.4.3" />
+  <project groups="non-default,drmhwc" name="gralloc" path="hardware/libhardware/modules/gralloc" remote="bga" revision="master" />
+  <project groups="non-default,drmhwc" name="hwcomposer" path="hardware/libhardware/modules/hwcomposer" remote="bga" revision="master" -->
+
+  <remote name="local-dev" fetch="file:///home/varad/devel/" />
+  <!-- mesa -->
+  <remove-project name="platform/external/mesa3d" />
+  <remove-project name="platform/external/mesa" />
+  <project name="mesa" path="mesa/" remote="local-dev" revision="android-prime"/>
+
+  <!-- drm_gralloc -->
+  <remove-project name="platform/hardware/drm_gralloc"/>
+  <project name="drm_gralloc" remote="local-dev" revision="freedreno"/>
+
+  <!-- qcom linaro kernel -->
+  <!--remove-project name="kernel/common" /-->
+  <!--project path="msm/" name="msm" revision="android-msm-2.6.29" remote="local-dev"/-->
+
+</manifest>
