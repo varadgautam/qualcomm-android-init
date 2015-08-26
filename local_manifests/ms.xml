@@ -16,7 +16,7 @@
 
   <!-- drm_gralloc -->
   <remove-project name="platform/hardware/drm_gralloc"/>
-  <project name="drm_gralloc" remote="local-dev" revision="freedreno"/>
+  <project path="hardware/drm_gralloc" name="drm_gralloc" remote="local-dev" revision="freedreno"/>
 
   <!-- libdrm -->
   <remove-project name="platform/external/drm"/>
