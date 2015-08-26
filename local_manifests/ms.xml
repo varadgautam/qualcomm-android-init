@@ -18,6 +18,10 @@
   <remove-project name="platform/hardware/drm_gralloc"/>
   <project name="drm_gralloc" remote="local-dev" revision="freedreno"/>
 
+  <!-- libdrm -->
+  <remove-project name="platform/external/drm"/>
+  <project path="external/drm" name="drm" remote="local-dev" revision="master"/>
+
   <!-- qcom linaro kernel -->
   <!--remove-project name="kernel/common" /-->
   <!--project path="msm/" name="msm" revision="android-msm-2.6.29" remote="local-dev"/-->
