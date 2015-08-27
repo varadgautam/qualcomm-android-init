@@ -1,0 +1,81 @@
+import /init.partitions.qualcomm.rc
+
+on init
+    # mount debugfs
+    mount debugfs /sys/kernel/debug /sys/kernel/debug
+
+# power management
+# Enable off mode by default
+    #write /sys/kernel/debug/pm_debug/enable_off_mode 1
+
+on boot
+    # create dhcpcd dir
+    mkdir /data/misc/dhcp 0770 dhcp dhcp
+    mkdir /data/misc/gatord 0700 root root
+    chmod 0770 /data/misc/dhcp
+
+    # For TC2, set A15 and A7 clusters A7s to interactive governor
+    # (Other CoreTiles don't have cpu_freq so this doesn't affect them.)
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor interactive
+
+    # change permissions for alsa nodes
+    chmod 0777 /dev/snd/pcmC0D0c
+    chmod 0777 /dev/snd/pcmC0D0p
+    chmod 0777 /dev/snd/controlC0
+    chmod 0777 /dev/snd/timer
+
+    #change permissions for alsa nodes for audio modem
+    chmod 0777 /dev/snd/pcmC0D5c
+    chmod 0777 /dev/snd/pcmC0D5p
+
+    #change permissions for alsa nodes for HDMI
+    chmod 777  /dev/snd/pcmC0D7p
+
+    chown system system /sys/class/graphics/fb0/overlays
+    chown system system /sys/class/graphics/fb0/fit_to_screen
+    chown system system /sys/class/graphics/fb1/overlays
+
+# Load gator module
+    insmod /system/modules/gator.ko
+
+on post-fs-data
+    # Set SELinux security contexts for files used by lava.
+    restorecon_recursive /data/local/tmp/lava
+
+service boardtweaks /sbin/tweaks.qualcomm.sh
+    class main
+    user root
+    oneshot
+
+# setup IRQ affinity to the A7s
+service setirqaffinity /sbin/set_irq_affinity.sh 0xc07
+    class main
+    user root
+    oneshot
+
+service faketsd /system/bin/faketsd
+    class main
+    user bluetooth
+    group bluetooth
+    oneshot
+
+service dhcpcd_eth0 /system/bin/dhcpcd -aABDKL
+    class main
+    disabled
+    oneshot
+
+service iprenew_eth0 /system/bin/dhcpcd -n
+    class late_start
+    disabled
+    oneshot
+
+service gatord /system/bin/gatord -c /data/misc/gatord/configuration.xml
+    class main
+    user root
+    oneshot
+    seclabel u:r:gatord:s0
+
